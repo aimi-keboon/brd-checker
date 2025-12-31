@@ -2,18 +2,88 @@ import OpenAI from "openai";
 import pdf from "pdf-parse";
 import JSZip from "jszip";
 
+/* ================= CONFIG ================= */
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// ---------- helpers ----------
-
-// very safe approximation
-// 1 token ≈ 4 characters
+// token ≈ 4 chars (safe estimate)
 const TOKENS_PER_CHAR = 1 / 4;
+const MAX_TOKENS_PER_CHUNK = 2500;
+const THROTTLE_MS = 7000;
 
-// keep this conservative to leave room for system prompt + output
-const MAX_TOKENS_PER_CHUNK = 12000;
+const CHUNK_MODEL = "gpt-4o-mini";
+const FINAL_MODEL = "gpt-4.1";
+
+/* ================= PROMPT ================= */
+
+const BRD_REVIEW_PROMPT = `
+You are reviewing a Business Requirement Document (BRD) as a Project Manager and Development Manager before any development starts.
+
+Your feedback is written for the Business Analyst, so it must be clear, specific, and actionable.
+
+Assume:
+• Anything not clearly documented is missing
+• Developers will not ask clarifying questions
+• Ambiguity equals delivery risk
+
+---
+
+What You Must Do
+
+1. Decide whether the BRD is:
+• READY FOR DEVELOPMENT
+• NOT READY FOR DEVELOPMENT
+
+There is no conditional status.
+If anything material is missing or unclear, the BRD is NOT READY.
+
+2. Clearly explain why.
+3. Clearly list what must be improved or added.
+4. Ask specific questions the BRD must answer.
+
+Do not rewrite the BRD.
+Do not assume missing context.
+
+---
+
+What You Must Review
+
+• Business objectives and success criteria
+• In-scope and out-of-scope definitions
+• Functional requirements
+• Non-functional requirements
+• End-to-end flows
+• Edge cases
+• Module scope and dependencies
+• Integrations and data flow
+• Data ownership and lifecycle
+• Security, access, audit, compliance
+• Terminology consistency
+
+---
+
+Required Response Format (MANDATORY)
+
+1. BRD Readiness Decision
+2. What Is Clear and Well-Defined
+3. What Is Missing or Unclear
+4. Blocking Issues
+5. Questions the BRD Must Answer
+
+Tone:
+• Direct
+• Professional
+• No assumptions
+• Ambiguity is a defect
+`;
+
+/* ================= HELPERS ================= */
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function splitIntoChunks(text) {
   const maxChars = Math.floor(MAX_TOKENS_PER_CHUNK / TOKENS_PER_CHAR);
@@ -28,7 +98,7 @@ function splitIntoChunks(text) {
   return chunks;
 }
 
-// ---------- handler ----------
+/* ================= HANDLER ================= */
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -41,7 +111,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ---- read body ----
+    /* ---- read upload ---- */
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
@@ -50,7 +120,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Empty upload" });
     }
 
-    // ---- extract text ----
+    /* ---- extract text ---- */
     const contentType = req.headers["content-type"] || "";
     let text = "";
 
@@ -71,61 +141,56 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Unsupported file type" });
     }
 
-    text = (text || "").trim();
+    text = text.trim();
     if (!text) {
-      return res.status(400).json({ error: "No extractable text found" });
+      return res.status(400).json({ error: "No extractable text" });
     }
 
-    // ---- chunk document ----
+    /* ---- chunk doc ---- */
     const docChunks = splitIntoChunks(text);
-
-    // ---- run checker on each chunk ----
     const partialResults = [];
 
+    /* ---- analyze chunks ---- */
     for (let i = 0; i < docChunks.length; i++) {
-      const chunkText = docChunks[i];
-
       const response = await openai.responses.create({
-        model: "gpt-4.1",
+        model: CHUNK_MODEL,
         input: `
-You are processing PART ${i + 1} of ${docChunks.length} of a larger document.
+${BRD_REVIEW_PROMPT}
 
-Analyze ONLY the content below and produce your normal BRD checking output.
-Do not assume knowledge of other parts.
+You are reviewing PART ${i + 1} of ${docChunks.length}.
+Analyze ONLY this part.
 
---- START OF PART ${i + 1} ---
-${chunkText}
---- END OF PART ${i + 1} ---
-        `
+--- START ---
+${docChunks[i]}
+--- END ---
+`
       });
 
       if (response.output_text) {
         partialResults.push(
-          `### Analysis for Part ${i + 1}\n${response.output_text}`
+          `### Part ${i + 1}\n${response.output_text}`
         );
       }
+
+      await sleep(THROTTLE_MS);
     }
 
-    // ---- merge results ----
-    const mergedInput = `
-The following are analyses of different parts of the SAME document.
+    /* ---- merge ---- */
+    const finalResponse = await openai.responses.create({
+      model: FINAL_MODEL,
+      input: `
+${BRD_REVIEW_PROMPT}
 
-Your task:
-- Merge them into ONE coherent final BRD review
-- Remove duplicates
-- Resolve overlaps
-- Produce a single, clean result
+The following are partial analyses of the SAME BRD.
+Merge them into ONE final response.
+Remove duplicates and resolve overlaps.
 
 ${partialResults.join("\n\n")}
-    `;
-
-    const finalResponse = await openai.responses.create({
-      model: "gpt-4.1",
-      input: mergedInput
+`
     });
 
     return res.status(200).json({
-      result: finalResponse.output_text || "(No final output generated)"
+      result: finalResponse.output_text || "(No output)"
     });
 
   } catch (err) {

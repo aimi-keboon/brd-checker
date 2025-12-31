@@ -28,9 +28,8 @@
 <input
   type="file"
   id="file"
-  accept=".txt,.md,.docx,.pdf"
+  accept=".txt,.md,.pdf,.docx"
 />
-
 <br />
 <button onclick="submitFile()">Submit</button>
 
@@ -47,15 +46,15 @@
     }
 
     const file = fileInput.files[0];
-    const text = await file.text();
+    const buffer = await file.arrayBuffer();
 
-    output.textContent = "Processing...";
+    output.textContent = "Processing… this may take a minute for large documents.";
 
     try {
       const response = await fetch("/api/process", {
         method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: text
+        headers: { "Content-Type": file.type },
+        body: buffer
       });
 
       const data = await response.json();
