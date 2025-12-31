@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     }
 
     const response = await openai.responses.create({
-      model: "gpt-4.1",
+      model: "gpt-5.2",
       input: `
 ${BRD_DIRECTION_PROMPT}
 
