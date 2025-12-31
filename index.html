@@ -1,0 +1,31 @@
+<script>
+  async function submitFile() {
+    const fileInput = document.getElementById("file");
+    const output = document.getElementById("output");
+
+    if (!fileInput.files.length) {
+      alert("Please upload a file");
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const text = await file.text();
+
+    output.textContent = "Processing...";
+
+    try {
+      const response = await fetch("/api/process", {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: text
+      });
+
+      const data = await response.json();
+      output.textContent = data.result || data.error;
+    } catch (err) {
+      output.textContent = "Request failed.";
+    }
+  }
+</script>

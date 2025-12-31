@@ -1,0 +1,10 @@
+{
+  "name": "brd-upload-checker",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "openai": "^4.0.0",
+    "pdf-parse": "^1.1.1",
+    "multer": "^1.4.5"
+  }
+}
