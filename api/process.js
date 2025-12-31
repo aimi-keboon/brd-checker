@@ -20,32 +20,24 @@ export default async function handler(req, res) {
   try {
     // Read raw body
     const chunks = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
+    for await (const chunk of req) chunks.push(chunk);
+    const text = Buffer.concat(chunks).toString("utf-8").trim();
 
-    const inputText = Buffer.concat(chunks).toString("utf-8").trim();
-
-    if (!inputText) {
+    if (!text) {
       return res.status(400).json({ error: "Empty input" });
     }
 
-    const aiResponse = await openai.responses.create({
+    const response = await openai.responses.create({
       model: "gpt-4.1",
-      input: inputText
+      input: text
     });
 
-    // ✅ SAFE extraction
-    let outputText = "No response generated.";
-
-    if (aiResponse.output?.length) {
-      for (const item of aiResponse.output) {
-        if (item.content) {
-          for (const part of item.content) {
-            if (part.type === "output_text") {
-              outputText = part.text;
-            }
-          }
+    // Extract text safely
+    let outputText = "No output";
+    for (const item of response.output || []) {
+      for (const part of item.content || []) {
+        if (part.type === "output_text") {
+          outputText = part.text;
         }
       }
     }
@@ -54,8 +46,13 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("OPENAI ERROR:", err);
+
+    // 🔥 TEMP DEBUG RESPONSE
     return res.status(500).json({
-      error: err?.message || "Internal server error"
+      errorType: err?.name,
+      errorMessage: err?.message,
+      errorStatus: err?.status,
+      errorCode: err?.code
     });
   }
 }
