@@ -2,15 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>BRD Checker</title>
+  <title>BRD Direction Builder</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 700px;
+      max-width: 900px;
       margin: 40px auto;
+      line-height: 1.5;
+    }
+    h2, h3 {
+      margin-top: 24px;
+    }
+    ul {
+      margin-left: 20px;
     }
     button {
-      margin-top: 10px;
+      margin-top: 12px;
       padding: 8px 16px;
     }
     pre {
@@ -18,20 +25,95 @@
       background: #f4f4f4;
       padding: 16px;
       white-space: pre-wrap;
+      border-left: 4px solid #ccc;
+    }
+    .hint {
+      color: #555;
+      font-size: 14px;
+    }
+    .box {
+      background: #fafafa;
+      padding: 16px;
+      border: 1px solid #ddd;
+      margin-top: 16px;
+    }
+    .sample {
+      background: #f9f9f9;
+      padding: 12px;
+      border: 1px dashed #aaa;
+      font-size: 14px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
 
-<h2>Upload Business Requirement Document</h2>
+<h2>BRD Direction Builder</h2>
 
-<input
-  type="file"
-  id="file"
-  accept=".txt,.md,.pdf,.docx"
-/>
+<p>
+Upload stakeholder notes, meeting summaries, or rough ideas.
 <br />
-<button onclick="submitFile()">Submit</button>
+This tool helps you understand <strong>what must be clarified before writing a proper BRD</strong>.
+</p>
+
+<h3>What to Include for Best Results</h3>
+
+<div class="box">
+  <p>Try to include as many of the following as you reasonably can:</p>
+  <ul>
+    <li><strong>Business problem or objective</strong> (why this is being done)</li>
+    <li><strong>Who requested this</strong> (stakeholders, departments)</li>
+    <li><strong>Target users</strong> (who will use it)</li>
+    <li><strong>What is in scope</strong> (high-level features or changes)</li>
+    <li><strong>What is explicitly out of scope</strong> (if known)</li>
+    <li><strong>Any deadlines or constraints</strong> (regulatory, timeline, budget)</li>
+    <li><strong>Integrations or systems involved</strong> (if mentioned)</li>
+    <li><strong>Known risks, concerns, or open questions</strong></li>
+    <li><strong>Anything stakeholders disagreed on</strong></li>
+  </ul>
+  <p class="hint">
+    It’s okay if you don’t have all of this. Missing information is exactly what the tool will help identify.
+  </p>
+</div>
+
+<h3>Example Input (You Can Copy This Structure)</h3>
+
+<div class="sample">
+Business Objective:
+- Improve payment reconciliation accuracy for retail stores
+
+Stakeholders:
+- Finance team
+- Store operations
+- IT
+
+Current Situation:
+- Reconciliation is done manually using Excel
+- Errors are common and discovered late
+
+Proposed Idea:
+- Integrate POS system with payment gateway reports
+- Generate daily reconciliation summaries
+
+Known Constraints:
+- Must work with existing POS system
+- No changes to payment gateway contracts
+
+Open Questions / Concerns:
+- How discrepancies should be handled
+- Who owns exception resolution
+</div>
+
+<h3>Upload Your Notes</h3>
+
+<input type="file" id="file" accept=".txt,.md" />
+<br />
+<button onclick="submitFile()">Generate BRD Direction</button>
+
+<p class="hint">
+Recommended: short notes, bullet points, or meeting summaries.  
+Large documents and PDFs are intentionally not supported.
+</p>
 
 <pre id="output"></pre>
 
@@ -41,20 +123,20 @@
     const output = document.getElementById("output");
 
     if (!fileInput.files.length) {
-      alert("Please upload a file");
+      alert("Please upload a text file");
       return;
     }
 
     const file = fileInput.files[0];
-    const buffer = await file.arrayBuffer();
+    const text = await file.text();
 
-    output.textContent = "Processing… this may take a minute for large documents.";
+    output.textContent = "Analyzing notes…";
 
     try {
       const response = await fetch("/api/process", {
         method: "POST",
-        headers: { "Content-Type": file.type },
-        body: buffer
+        headers: { "Content-Type": "text/plain" },
+        body: text
       });
 
       const data = await response.json();

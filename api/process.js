@@ -1,102 +1,71 @@
 import OpenAI from "openai";
-import pdf from "pdf-parse";
-import JSZip from "jszip";
-
-/* ================= CONFIG ================= */
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// token ≈ 4 chars (safe estimate)
-const TOKENS_PER_CHAR = 1 / 4;
-const MAX_TOKENS_PER_CHUNK = 2500;
-const THROTTLE_MS = 7000;
-
-const CHUNK_MODEL = "gpt-4o-mini";
-const FINAL_MODEL = "gpt-4.1";
-
 /* ================= PROMPT ================= */
 
-const BRD_REVIEW_PROMPT = `
-You are reviewing a Business Requirement Document (BRD) as a Project Manager and Development Manager before any development starts.
+const BRD_DIRECTION_PROMPT = `
+You are helping an Operations Manager or Project Manager turn rough stakeholder notes into clear direction for writing a proper Business Requirement Document (BRD).
 
-Your feedback is written for the Business Analyst, so it must be clear, specific, and actionable.
+The input may be incomplete, messy, or ambiguous. That is expected.
 
-Assume:
-• Anything not clearly documented is missing
-• Developers will not ask clarifying questions
-• Ambiguity equals delivery risk
+Your job is NOT to write the BRD.
+Your job is to provide clear, structured guidance on what must be defined before a BRD can be written.
+
+Assumptions:
+- Stakeholder notes are often incomplete or inconsistent
+- Anything not explicitly stated may be missing
+- Ambiguity equals delivery risk
 
 ---
 
 What You Must Do
 
-1. Decide whether the BRD is:
-• READY FOR DEVELOPMENT
-• NOT READY FOR DEVELOPMENT
+Based ONLY on the notes provided:
 
-There is no conditional status.
-If anything material is missing or unclear, the BRD is NOT READY.
+1. Infer the likely purpose of the initiative
+   - Clearly state assumptions you are making
 
-2. Clearly explain why.
-3. Clearly list what must be improved or added.
-4. Ask specific questions the BRD must answer.
+2. Identify the key areas that must be defined before writing a BRD
+   - Scope
+   - Users / roles
+   - Success criteria
+   - Constraints
+   - Dependencies
+   - Risks
 
-Do not rewrite the BRD.
-Do not assume missing context.
+3. List what is missing or unclear
+   - Be concrete and specific
+   - Group related gaps together
 
----
+4. Provide a list of questions to take back to stakeholders
+   - Each question should resolve a real risk or ambiguity
+   - Questions must be specific and actionable
 
-What You Must Review
-
-• Business objectives and success criteria
-• In-scope and out-of-scope definitions
-• Functional requirements
-• Non-functional requirements
-• End-to-end flows
-• Edge cases
-• Module scope and dependencies
-• Integrations and data flow
-• Data ownership and lifecycle
-• Security, access, audit, compliance
-• Terminology consistency
+5. Suggest a BRD structure
+   - List recommended sections
+   - Explain what each section should clarify
+   - Do NOT write the BRD content
 
 ---
 
-Required Response Format (MANDATORY)
+Required Output Structure (MANDATORY)
 
-1. BRD Readiness Decision
-2. What Is Clear and Well-Defined
-3. What Is Missing or Unclear
-4. Blocking Issues
-5. Questions the BRD Must Answer
+1. Interpreted Initiative Overview
+2. Key Areas That Must Be Defined
+3. Missing or Unclear Information
+4. Questions to Clarify with Stakeholders
+5. Suggested BRD Structure
 
 Tone:
-• Direct
-• Professional
-• No assumptions
-• Ambiguity is a defect
+- Clear
+- Practical
+- Professional
+- No assumptions without stating them
+- Focused on enabling the next step
 `;
-
-/* ================= HELPERS ================= */
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function splitIntoChunks(text) {
-  const maxChars = Math.floor(MAX_TOKENS_PER_CHUNK / TOKENS_PER_CHAR);
-  const chunks = [];
-
-  let start = 0;
-  while (start < text.length) {
-    chunks.push(text.slice(start, start + maxChars));
-    start += maxChars;
-  }
-
-  return chunks;
-}
 
 /* ================= HANDLER ================= */
 
@@ -111,86 +80,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    /* ---- read upload ---- */
+    // Read raw text
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
-    const buffer = Buffer.concat(chunks);
+    const notes = Buffer.concat(chunks).toString("utf-8").trim();
 
-    if (!buffer.length) {
-      return res.status(400).json({ error: "Empty upload" });
+    if (!notes) {
+      return res.status(400).json({ error: "Empty input" });
     }
 
-    /* ---- extract text ---- */
-    const contentType = req.headers["content-type"] || "";
-    let text = "";
-
-    if (contentType.includes("text/plain")) {
-      text = buffer.toString("utf-8");
-    } else if (contentType.includes("application/pdf")) {
-      const data = await pdf(buffer);
-      text = data.text;
-    } else if (
-      contentType.includes(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      )
-    ) {
-      const zip = await JSZip.loadAsync(buffer);
-      const xml = await zip.file("word/document.xml").async("string");
-      text = xml.replace(/<[^>]+>/g, " ");
-    } else {
-      return res.status(400).json({ error: "Unsupported file type" });
-    }
-
-    text = text.trim();
-    if (!text) {
-      return res.status(400).json({ error: "No extractable text" });
-    }
-
-    /* ---- chunk doc ---- */
-    const docChunks = splitIntoChunks(text);
-    const partialResults = [];
-
-    /* ---- analyze chunks ---- */
-    for (let i = 0; i < docChunks.length; i++) {
-      const response = await openai.responses.create({
-        model: CHUNK_MODEL,
-        input: `
-${BRD_REVIEW_PROMPT}
-
-You are reviewing PART ${i + 1} of ${docChunks.length}.
-Analyze ONLY this part.
-
---- START ---
-${docChunks[i]}
---- END ---
-`
+    // Safety guard (keep it fast & cheap)
+    if (notes.length > 20_000) {
+      return res.status(400).json({
+        error:
+          "Notes are too long for this tool.\n" +
+          "Please upload shorter stakeholder notes or summaries."
       });
-
-      if (response.output_text) {
-        partialResults.push(
-          `### Part ${i + 1}\n${response.output_text}`
-        );
-      }
-
-      await sleep(THROTTLE_MS);
     }
 
-    /* ---- merge ---- */
-    const finalResponse = await openai.responses.create({
-      model: FINAL_MODEL,
+    const response = await openai.responses.create({
+      model: "gpt-4.1",
       input: `
-${BRD_REVIEW_PROMPT}
+${BRD_DIRECTION_PROMPT}
 
-The following are partial analyses of the SAME BRD.
-Merge them into ONE final response.
-Remove duplicates and resolve overlaps.
-
-${partialResults.join("\n\n")}
+--- STAKEHOLDER NOTES ---
+${notes}
+--- END ---
 `
     });
 
     return res.status(200).json({
-      result: finalResponse.output_text || "(No output)"
+      result: response.output_text || "(No output generated)"
     });
 
   } catch (err) {
