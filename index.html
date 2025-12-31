@@ -1,3 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BRD Checker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+    }
+    pre {
+      margin-top: 20px;
+      background: #f4f4f4;
+      padding: 16px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Upload Business Requirement Document</h2>
+
+<input type="file" id="file" accept=".txt,.md" />
+<br />
+<button onclick="submitFile()">Submit</button>
+
+<pre id="output"></pre>
+
 <script>
   async function submitFile() {
     const fileInput = document.getElementById("file");
@@ -16,16 +49,17 @@
     try {
       const response = await fetch("/api/process", {
         method: "POST",
-        headers: {
-          "Content-Type": "text/plain"
-        },
+        headers: { "Content-Type": "text/plain" },
         body: text
       });
 
       const data = await response.json();
       output.textContent = data.result || data.error;
-    } catch (err) {
+    } catch {
       output.textContent = "Request failed.";
     }
   }
 </script>
+
+</body>
+</html>
