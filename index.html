@@ -2,128 +2,218 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>BRD Direction Builder</title>
+  <title>BRD Preparation Guide</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 40px auto;
+      max-width: 880px;
+      margin: 32px auto;
       line-height: 1.5;
     }
-    h2, h3 {
-      margin-top: 24px;
+    h2 {
+      margin-bottom: 8px;
     }
-    ul {
-      margin-left: 20px;
+    h3 {
+      margin-top: 20px;
     }
     button {
-      margin-top: 12px;
-      padding: 8px 16px;
+      margin-top: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
     }
     pre {
-      margin-top: 20px;
+      margin-top: 16px;
       background: #f4f4f4;
-      padding: 16px;
+      padding: 14px;
       white-space: pre-wrap;
       border-left: 4px solid #ccc;
     }
     .hint {
       color: #555;
-      font-size: 14px;
+      font-size: 13px;
     }
     .box {
       background: #fafafa;
-      padding: 16px;
+      padding: 14px;
       border: 1px solid #ddd;
-      margin-top: 16px;
+      margin-top: 12px;
     }
     .sample {
       background: #f9f9f9;
       padding: 12px;
       border: 1px dashed #aaa;
-      font-size: 14px;
+      font-size: 13px;
       white-space: pre-wrap;
+    }
+    .status {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #2e7d32;
+      display: none;
+    }
+    details {
+      margin-top: 12px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    summary:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
 
-<h2>BRD Direction Builder</h2>
+<h2>BRD Preparation Guide</h2>
 
 <p>
-Upload stakeholder notes, meeting summaries, or rough ideas.
+Upload rough notes or meeting summaries.  
 <br />
-This tool helps you understand <strong>what must be clarified before writing a proper BRD</strong>.
+This tool highlights <strong>what must be clarified before writing a BRD</strong>.
 </p>
 
-<h3>What to Include for Best Results</h3>
+<!-- HOW IT WORKS (COLLAPSIBLE) -->
+<details>
+  <summary>How this tool helps</summary>
+  <div class="box">
+    <ul>
+      <li>Surfaces key problems and pain points from your notes</li>
+      <li>Lists what must be clearly defined (scope, rules, ownership)</li>
+      <li>Provides concise guidance — not requirements or solutions</li>
+    </ul>
+    <p class="hint">
+      This tool prepares you to write a BRD. It does not generate one.
+    </p>
+  </div>
+</details>
 
-<div class="box">
-  <p>Try to include as many of the following as you reasonably can:</p>
-  <ul>
-    <li><strong>Business problem or objective</strong> (why this is being done)</li>
-    <li><strong>Who requested this</strong> (stakeholders, departments)</li>
-    <li><strong>Target users</strong> (who will use it)</li>
-    <li><strong>What is in scope</strong> (high-level features or changes)</li>
-    <li><strong>What is explicitly out of scope</strong> (if known)</li>
-    <li><strong>Any deadlines or constraints</strong> (regulatory, timeline, budget)</li>
-    <li><strong>Integrations or systems involved</strong> (if mentioned)</li>
-    <li><strong>Known risks, concerns, or open questions</strong></li>
-    <li><strong>Anything stakeholders disagreed on</strong></li>
-  </ul>
-  <p class="hint">
-    It’s okay if you don’t have all of this. Missing information is exactly what the tool will help identify.
-  </p>
-</div>
+<!-- TEMPLATE (COLLAPSIBLE) -->
+<details>
+  <summary>Start with an empty template</summary>
 
-<h3>Example Input (You Can Copy This Structure)</h3>
+  <button onclick="copyTemplate()">Copy BRD Preparation Template</button>
+  <div id="copyStatus" class="status">Template copied to clipboard</div>
 
-<div class="sample">
+  <pre class="sample">
+Business Objective
+- 
+
+Key Pain Points the BRD Must Solve
+- 
+
+Stakeholders & Decision Ownership
+- 
+
+Core Areas to Clarify Before BRD
+- 
+
+Rules & Exceptions
+- 
+
+Scope Boundaries
+- 
+
+Data, Access & Audit
+- 
+
+Integrations & Constraints
+- 
+
+Reporting & Visibility
+- 
+
+Open Items to Resolve Before BRD
+- 
+  </pre>
+</details>
+
+<!-- EXAMPLE INPUT (COLLAPSIBLE) -->
+<details>
+  <summary>Example input</summary>
+  <div class="sample">
+Background:
+- Operations handled via Excel and email
+- No centralized system
+
 Business Objective:
-- Improve payment reconciliation accuracy for retail stores
+- Improve visibility and reduce manual work
 
 Stakeholders:
-- Finance team
-- Store operations
+- Operations
+- Finance
 - IT
 
-Current Situation:
-- Reconciliation is done manually using Excel
-- Errors are common and discovered late
+Known Issues:
+- Manual approvals
+- Slow reporting
 
-Proposed Idea:
-- Integrate POS system with payment gateway reports
-- Generate daily reconciliation summaries
-
-Known Constraints:
-- Must work with existing POS system
-- No changes to payment gateway contracts
-
-Open Questions / Concerns:
-- How discrepancies should be handled
-- Who owns exception resolution
-</div>
+Constraints:
+- Must integrate with existing system
+  </div>
+</details>
 
 <h3>Upload Your Notes</h3>
 
 <input type="file" id="file" accept=".txt,.md" />
 <br />
-<button onclick="submitFile()">Generate BRD Direction</button>
+<button onclick="submitFile()">Generate Preparation Guidance</button>
 
 <p class="hint">
-Recommended: short notes, bullet points, or meeting summaries.  
-Large documents and PDFs are intentionally not supported.
+Short bullet notes work best. PDFs are intentionally not supported.
 </p>
 
 <pre id="output"></pre>
 
 <script>
+  const emptyTemplate = `Business Objective
+- 
+
+Key Pain Points the BRD Must Solve
+- 
+
+Stakeholders & Decision Ownership
+- 
+
+Core Areas to Clarify Before BRD
+- 
+
+Rules & Exceptions
+- 
+
+Scope Boundaries
+- 
+
+Data, Access & Audit
+- 
+
+Integrations & Constraints
+- 
+
+Reporting & Visibility
+- 
+
+Open Items to Resolve Before BRD
+- 
+`;
+
+  function copyTemplate() {
+    navigator.clipboard.writeText(emptyTemplate).then(() => {
+      const status = document.getElementById("copyStatus");
+      status.style.display = "block";
+      setTimeout(() => {
+        status.style.display = "none";
+      }, 2000);
+    });
+  }
+
   async function submitFile() {
     const fileInput = document.getElementById("file");
     const output = document.getElementById("output");
 
     if (!fileInput.files.length) {
-      alert("Please upload a text file");
+      output.textContent = "Please upload a text file.";
       return;
     }
 
