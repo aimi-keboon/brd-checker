@@ -5,12 +5,10 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // CORS (required)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -26,23 +24,38 @@ export default async function handler(req, res) {
       chunks.push(chunk);
     }
 
-    const text = Buffer.concat(chunks).toString("utf-8");
+    const inputText = Buffer.concat(chunks).toString("utf-8").trim();
 
-    if (!text.trim()) {
+    if (!inputText) {
       return res.status(400).json({ error: "Empty input" });
     }
 
-    const response = await openai.responses.create({
+    const aiResponse = await openai.responses.create({
       model: "gpt-4.1",
-      input: text
+      input: inputText
     });
 
-    return res.status(200).json({
-      result: response.output_text
-    });
+    // ✅ SAFE extraction
+    let outputText = "No response generated.";
+
+    if (aiResponse.output?.length) {
+      for (const item of aiResponse.output) {
+        if (item.content) {
+          for (const part of item.content) {
+            if (part.type === "output_text") {
+              outputText = part.text;
+            }
+          }
+        }
+      }
+    }
+
+    return res.status(200).json({ result: outputText });
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("OPENAI ERROR:", err);
+    return res.status(500).json({
+      error: err?.message || "Internal server error"
+    });
   }
 }
